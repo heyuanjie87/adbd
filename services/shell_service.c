@@ -20,9 +20,12 @@ struct adb_shdev
     struct rt_event notify;
 };
 
-#define ADEV_READ 1
-#define ADEV_WRITE 2
-#define ADEV_EXIT 4
+#define ADEV_EXIT    (0x01)
+#define ADEV_READ    (0x02)
+#define ADEV_WRITE   (0x04)
+#define ADEV_WREADY  (0x08)
+
+#define ADEV_WRTEE 
 
 struct shell_ext
 {
@@ -52,12 +55,17 @@ static int _adwait(struct adb_shdev *ad, int ev, int ms)
     return r;
 }
 
+static void _adreport(struct adb_shdev *ad, int ev)
+{
+    rt_event_send(&ad->notify, ev);
+}
+
 static rt_err_t _shell_service_device_init(struct rt_device *dev)
 {
     struct adb_shdev *ad = (struct adb_shdev *)dev;
 
     ad->rbuf = rt_ringbuffer_create(32);
-    ad->wbuf = rt_ringbuffer_create(64);
+    ad->wbuf = rt_ringbuffer_create(256);
     if (!ad->rbuf || !ad->wbuf)
     {
         if (ad->rbuf)
@@ -120,7 +128,6 @@ static rt_size_t _shell_service_device_write(rt_device_t dev, rt_off_t pos,
     struct adb_shdev *ad = (struct adb_shdev *)dev;
     int wlen;
     char *spos = (char *)buffer;
-    int cnt = 0;
 
     if (!dev->user_data)
         return 0;
@@ -130,25 +137,13 @@ static rt_size_t _shell_service_device_write(rt_device_t dev, rt_off_t pos,
         return rt_ringbuffer_put(ad->wbuf, (unsigned char *)spos, size);
     }
 
-    while (size && dev->user_data)
-    {
-        rt_mutex_take(&_lock, -1);
-        wlen = rt_ringbuffer_put(ad->wbuf, (unsigned char *)spos, size);
-        rt_mutex_release(&_lock);
+    rt_mutex_take(&_lock, -1);
+    wlen = rt_ringbuffer_put(ad->wbuf, (unsigned char *)spos, size);
+    rt_mutex_release(&_lock);
+    _adreport(ad, ADEV_WRITE);
+    rt_thread_mdelay(10);
 
-        rt_event_send(&ad->notify, ADEV_WRITE);
-
-        if (wlen)
-        {
-            spos += wlen;
-            size -= wlen;
-            cnt += wlen;
-        }
-        else
-            rt_thread_yield();
-    }
-
-    return cnt;
+    return wlen;
 }
 
 static rt_err_t _shell_service_device_ctrl(rt_device_t dev,
@@ -313,6 +308,8 @@ static void do_readdev(struct adb_service *ser, struct shell_ext *ext)
     struct adb_packet *p;
 
     size = rt_ringbuffer_data_len(ext->dev->wbuf);
+    if (size == 0)
+        return;
     p = adb_packet_new(size);
     if (!p)
         return;
@@ -322,6 +319,7 @@ static void do_readdev(struct adb_service *ser, struct shell_ext *ext)
     {
         adb_packet_delete(p);
     }
+    _adreport(ext->dev, ADEV_WREADY);
 }
 
 static void do_writedev(struct adb_service *ser, struct shell_ext *ext)
@@ -403,7 +401,7 @@ static struct adb_service *_shell_create(struct adb_service_handler *h)
         ext->worker = rt_thread_create("as-sh",
                                        service_thread,
                                        ser,
-                                       2048,
+                                       1024,
                                        22,
                                        20);
     }
