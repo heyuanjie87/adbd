@@ -12,7 +12,7 @@
 #include "transport.h"
 #include <adb_pque.h>
 
-#define DBG_ENABLE
+//#define DBG_ENABLE
 #define DBG_SECTION_NAME  "ADB TR"
 #define DBG_LEVEL         DBG_LOG
 #define DBG_COLOR
