@@ -14,7 +14,7 @@
 
 //#define DBG_ENABLE
 #define DBG_SECTION_NAME  "ADB TR"
-#define DBG_LEVEL         DBG_WARNING
+#define DBG_LEVEL         DBG_LOG
 #define DBG_COLOR
 #include <rtdbg.h>
 
@@ -277,11 +277,11 @@ static void write_thread(void *arg)
         if (!adb_packet_dequeue(&d->send_que, &p, 50))
             continue;
 
-        LOG_D("w:%c%c%c%c,len %d", ((char*) (&(pkt->msg.command)))[0],
-              ((char*) (&(pkt->msg.command)))[1],
-              ((char*) (&(pkt->msg.command)))[2],
-              ((char*) (&(pkt->msg.command)))[3],
-              pkt->msg.data_length);
+        LOG_D("w:%c%c%c%c,len %d", ((char*) (&(p->msg.command)))[0],
+              ((char*) (&(p->msg.command)))[1],
+              ((char*) (&(p->msg.command)))[2],
+              ((char*) (&(p->msg.command)))[3],
+              p->msg.data_length);
 
         if (p->msg.command == A_SYNC) 
         {
