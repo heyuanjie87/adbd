@@ -12,7 +12,7 @@
 #include "transport.h"
 #include <adb_pque.h>
 
-//#define DBG_ENABLE
+#define DBG_ENABLE
 #define DBG_SECTION_NAME  "ADB TR"
 #define DBG_LEVEL         DBG_LOG
 #define DBG_COLOR
@@ -41,24 +41,25 @@ static bool tr_read(struct adb *d, void *buf, int size, int ms)
     pos = (char*)buf;
     while (1)
     {
-        int len;
+        int val;
 
         if (size == 0)
             return true;
-        len = d->ops->read(d->tr_fd, pos, size);
-        if (len > 0)
+        val = d->ops->read(d->tr_fd, pos, size);
+        if (val > 0)
         {
-            pos += len;
-            size -= len;
+            pos += val;
+            size -= val;
             fail = 0;
         }
         else
         {
             if (fail)
                 break;
-            ret = d->ops->poll(d->tr_fd, TRE_READ, ms);
-            if ((ret == 0) || (ret & TRE_ERROR))
-                fail = 1;
+            val = d->ops->poll(d->tr_fd, TRE_READ, ms);
+            if (val & TRE_ERROR)
+                break;
+            fail = 1;
         }
     }
 
@@ -74,24 +75,25 @@ static bool tr_write(struct adb *d, void *buf, int size, int ms)
     pos = (char*)buf;
     while (1)
     {
-        int len;
+        int val;
 
         if (size == 0)
             return true;
-        len = d->ops->write(d->tr_fd, pos, size);
-        if (len > 0)
+        val = d->ops->write(d->tr_fd, pos, size);
+        if (val > 0)
         {
-            pos += len;
-            size -= len;
+            pos += val;
+            size -= val;
             fail = 0;
         }
         else
         {
             if (fail)
                 break;
-            ret = d->ops->poll(d->tr_fd, TRE_WRITE, ms);
-            if ((ret == 0) || (ret & TRE_ERROR))
-                fail = 1;
+            val = d->ops->poll(d->tr_fd, TRE_WRITE, ms);
+            if (val & TRE_ERROR)
+                break;
+            fail = 1;
         }
     }
 
@@ -240,7 +242,7 @@ static void read_thread(void *arg)
     if (!send_sync(d, 1, 1))
         goto _exit;
 
-    while (1)
+    while (!d->quit)
     {
         ret = read_packet_spilt(d, &p);
         if (ret == -1)
@@ -272,7 +274,7 @@ static void write_thread(void *arg)
         goto _exit; 
     adb_packet_delete(p);
 
-    while (1)
+    while (!d->quit)
     {
         if (!adb_packet_dequeue(&d->send_que, &p, 50))
             continue;
@@ -337,4 +339,10 @@ int adb_transport_register(int trtype, int fd, const struct adb_tr_ops *ops)
     }
 
     return ret;
+}
+
+void adb_transport_unregister(int trtype)
+{
+    if (trtype != 0)
+        adb_kill(trtype);
 }

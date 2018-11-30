@@ -14,11 +14,7 @@
 #include "adb.h"
 #include <adb_service.h>
 
-#if 1
-#define DBG_ENABLE
-#else
-#undef DBG_ENABLE
-#endif
+//#define DBG_ENABLE
 #define DBG_SECTION_NAME  "ADB"
 #define DBG_LEVEL         DBG_LOG
 #define DBG_COLOR
@@ -215,4 +211,22 @@ void adb_delete(struct adb *d)
     }
     rt_mb_detach(&d->send_que);
     rt_free(d);
+}
+
+void adb_kill(int trtype)
+{
+    struct rt_list_node *node, *head;
+    struct adb *d;
+
+    head = &_adb_list;
+    for (node = head->next; node != head; )
+    {
+        d = rt_list_entry(node, struct adb, node);
+        node = node->next;
+        if ((d->tr_type == trtype) || (trtype == 0))
+        {
+            d->quit = true;
+            rt_thread_mdelay(100);
+        }
+    }
 }

@@ -37,7 +37,7 @@ struct adb
 {
     rt_list_t node;
     rt_list_t s_list;
-
+    bool quit;
     adb_queue_t send_que;
     int sque_buf[8];
 
@@ -57,6 +57,7 @@ void adb_delete(struct adb* d);
 void adb_send_close(struct adb *d, unsigned local, unsigned remote);
 
 void adb_packet_handle(struct adb *d, struct adb_packet *p, bool pisnew);
+void adb_kill(int trtype);
 
 struct adb_service* adb_service_find(struct adb *d, unsigned localid, unsigned remoteid);
 unsigned adb_service_create(struct adb *d, char *name, unsigned remoteid);

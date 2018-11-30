@@ -133,6 +133,7 @@ static void tcp_server(void *arg)
         }
         LOG_D("accept connection");
 
+        adb_transport_unregister(TR_TCPIP);
         ret = adb_transport_register(TR_TCPIP, connected, &_ops);
         if (ret != 0)
         {
