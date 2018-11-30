@@ -11,7 +11,6 @@
 #include "adb.h"
 #include "transport.h"
 #include <adb_pque.h>
-#include <dfs_poll.h>
 
 //#define DBG_ENABLE
 #define DBG_SECTION_NAME  "ADB TR"
@@ -204,6 +203,7 @@ static void transport_unref(struct adb *d)
     d->tr_refcnt --;//todo lock
     if (d->tr_refcnt == 0)
     {
+        adb_packet_clear(&d->send_que);
         d->ops->close(d->tr_fd);
         adb_delete(d);
     }

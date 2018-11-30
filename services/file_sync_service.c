@@ -19,7 +19,7 @@
 #define FILESYNC_STACK_SIZE    2304
 #endif
 
-#define DBG_ENABLE
+//#define DBG_ENABLE
 #define DBG_SECTION_NAME  "ADB sync"
 #define DBG_LEVEL         DBG_LOG
 #define DBG_COLOR
@@ -502,11 +502,12 @@ static void filesync_thread(void *arg)
 
     while (handle_sync_command(ser, buf)){}
 
-    rt_free(ext->cur);
-    adb_send_close(ser->d, ser->localid, ser->remoteid);
     ser->online = 0;
     rt_free(buf);
+    adb_packet_delete(ext->cur);
     adb_packet_clear(&ext->recv_que);
+    adb_service_close_report(ser);
+
     rt_event_send(&ext->join, 1);
 
     LOG_D("quit");

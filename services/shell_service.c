@@ -469,7 +469,7 @@ static void service_thread(void *arg)
 
     adb_packet_delete(ext->cur);
     adb_packet_clear(&ext->recv_que);
-    adb_send_close(ser->d, ser->localid, ser->remoteid);
+    adb_service_close_report(ser);
 
     rt_event_send(&ext->notify, ADEV_EXIT);
 }

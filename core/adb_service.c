@@ -10,12 +10,9 @@
 
 #include "adb.h"
 #include <adb_service.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
 
-#define DBG_ENABLE
-#define DBG_SECTION_NAME  "ADB"
+//#define DBG_ENABLE
+#define DBG_SECTION_NAME  "ADB ser"
 #define DBG_LEVEL         DBG_LOG
 #define DBG_COLOR
 #include <rtdbg.h>
@@ -156,3 +153,7 @@ struct adb_service* adb_service_alloc(const struct adb_service_ops *ops,
     return ser;
 }
 
+void adb_service_close_report(struct adb_service *ser)
+{
+    adb_send_close(ser->d, ser->localid, ser->remoteid);
+}

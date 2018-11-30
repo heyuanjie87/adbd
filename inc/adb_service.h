@@ -48,7 +48,7 @@ struct adb_service
     void *extptr;
 };
 
-
+void adb_service_close_report(struct adb_service *ser);
 bool adb_service_sendpacket(struct adb_service *ser, 
                              struct adb_packet *p, int ms);
 
