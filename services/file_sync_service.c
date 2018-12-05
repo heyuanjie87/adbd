@@ -25,8 +25,6 @@
 #define DBG_COLOR
 #include <rtdbg.h>
 
-#define DATA_WRITE 1 //used for test,0:not write file
-
 struct filesync_ext
 {
     rt_thread_t worker;
@@ -393,7 +391,7 @@ static bool handle_send_file(struct adb_service *ser, char* path,
                 SendSyncFail(ser, "read packet timeout");
                 goto abort;
             }
-#if DATA_WRITE
+#ifndef FILESYNC_DATA_NO_WRITE /* for test */
             if (write(fd, &buffer[0], size) != size) 
             {
                 SendSyncFail(ser, "write failed");

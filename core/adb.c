@@ -170,9 +170,33 @@ void adb_packet_handle(struct adb *d, struct adb_packet *p, bool pisnew)
         adb_packet_delete(p);
 }
 
+static bool _isexist(int trtype)
+{
+    struct rt_list_node *node, *head;
+    struct adb *d;
+    bool e = false;
+
+    head = &_adb_list;
+    for (node = head->next; node != head; )
+    {
+        d = rt_list_entry(node, struct adb, node);
+        node = node->next;
+        if (d->tr_type == trtype)
+        {
+            e = true;
+            break;
+        }
+    }
+
+    return e;
+}
+
 struct adb* adb_new(int trtype)
 {
-    struct adb *d;
+    struct adb *d = 0;
+
+    if (_isexist(trtype))
+        return d;
 
     d = rt_calloc(sizeof(struct adb), 1);
     if (!d)

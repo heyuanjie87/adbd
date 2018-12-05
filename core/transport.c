@@ -32,6 +32,11 @@
 #define ADB_TR_STACK_SIZE     1280
 #endif
 
+#if !defined(ADB_TR_TCPIP_ENABLE) && \
+    !defined(ADB_TR_USB_ENABLE)
+#error "at least one transport is needed."
+#endif
+
 static bool tr_read(struct adb *d, void *buf, int size, int ms)
 {
     bool ret = false;
@@ -142,7 +147,7 @@ static bool check_header(struct adb_packet *p)
     return true;
 }
 
-static int read_packet_spilt(struct adb *d, struct adb_packet *ck)
+static int read_packet_split(struct adb *d, struct adb_packet *ck)
 {
     struct adb_packet *p;
     int ret;
@@ -244,7 +249,7 @@ static void read_thread(void *arg)
 
     while (!d->quit)
     {
-        ret = read_packet_spilt(d, &p);
+        ret = read_packet_split(d, &p);
         if (ret == -1)
         {
             LOG_D("remote read failed");

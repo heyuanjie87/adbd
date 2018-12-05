@@ -10,6 +10,7 @@
 
 #include <adb_service.h>
 #include <rtdevice.h>
+#include <dfs_posix.h>
 #include <shell.h>
 
 struct adb_shdev
@@ -49,7 +50,7 @@ static int _evwait(struct rt_event *notify, int ev, int ms)
     rt_event_recv(notify, ev,
                   RT_EVENT_FLAG_OR | RT_EVENT_FLAG_CLEAR,
                   rt_tick_from_millisecond(ms),
-                  (unsigned *)&r);
+                  (rt_uint32_t*)&r);
 
     return r;
 }
@@ -245,6 +246,9 @@ static bool send_ready(struct shell_ext *ext, char *args)
 
     return true;
 }
+
+extern int libc_stdio_set_console(const char* device_name, int mode);
+extern int libc_stdio_get_console(void);
 
 static int _shell_open(struct adb_service *ser, char *args)
 {

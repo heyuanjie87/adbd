@@ -9,10 +9,12 @@
  */
 
 #include <rtthread.h>
-#include <sys/socket.h>
-#include <sys/time.h>
 #include <dfs_poll.h>
 #include "transport.h"
+
+#ifdef ADB_TR_TCPIP_ENABLE
+#include <sys/socket.h>
+#include <sys/time.h>
 
 //#define DBG_ENABLE
 #define DBG_SECTION_NAME "ADB iosk"
@@ -20,7 +22,6 @@
 #define DBG_COLOR
 #include <rtdbg.h>
 
-static int started = 0;
 static int is_running = 0;
 
 static int sk_read(int fd, void *buf, int size)
@@ -109,8 +110,6 @@ static void tcp_server(void *arg)
         goto __exit;
     }
 
-    started = 1;
-
     while (is_running)
     {
         FD_ZERO(&readset);
@@ -147,7 +146,6 @@ __exit:
     {
         closesocket(sock);
     }
-    started = 0;
     is_running = 0;
 }
 
@@ -184,3 +182,4 @@ int adb_socket_init(void)
     return ret;
 }
 INIT_APP_EXPORT(adb_socket_init);
+#endif
