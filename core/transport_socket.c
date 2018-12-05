@@ -9,12 +9,14 @@
  */
 
 #include <rtthread.h>
-#include <dfs_poll.h>
+#include <string.h>
 #include "transport.h"
 
 #ifdef ADB_TR_TCPIP_ENABLE
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <dfs_select.h>
+#include <dfs_poll.h>
 
 //#define DBG_ENABLE
 #define DBG_SECTION_NAME "ADB iosk"
