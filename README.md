@@ -23,10 +23,13 @@
 #define PKG_USING_ADB   
 #define ADB_SERVICE_SHELL_ENABLE    /* 开启shell服务 */   
 #define ADB_SERVICE_FILESYNC_ENABLE /* 开启文件服务 */   
-#define ADB_TR_TCPIP_ENABLE    /* 开启tcp传输(可选) */   
+#define ADB_FILESYNC_MD5_ENABLE /* 开启文件服务生成md5功能(可选,依赖tinycrypt) */
+#define ADB_TR_TCPIP_ENABLE    /* 开启tcp传输(可选,至少需选一种) */   
 #define ADB_TR_USB_ENABLE      /* 开启usb传输(可选,至少需选一种),
-                                  usb device需开启winusb */   
+                                  @rt-thread@usb device需开启winusb */   
 ```
+### 3.2 依赖库
+- [计算md5](https://github.com/RT-Thread-packages/tinycrypt)
 
 ## 4. 参考文档
 

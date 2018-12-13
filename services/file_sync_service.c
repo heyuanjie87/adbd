@@ -15,8 +15,12 @@
 #include "file_sync_service.h"
 #include <dfs_posix.h>
 
-#ifndef FILESYNC_STACK_SIZE
-#define FILESYNC_STACK_SIZE    2304
+#ifdef ADB_FILESYNC_MD5_ENABLE
+#include <tiny_md5.h>
+#endif
+
+#ifndef ADB_FILESYNC_STACK_SIZE
+#define ADB_FILESYNC_STACK_SIZE    2304
 #endif
 
 //#define DBG_ENABLE
@@ -440,6 +444,51 @@ static bool do_send(struct adb_service *ser, char* spec, char *buffer)
     return handle_send_file(ser, path, mode, buffer, do_unlink);
 }
 
+#ifdef ADB_FILESYNC_MD5_ENABLE
+static bool do_calcmd5(struct adb_service *ser, char* spec, char *buffer)
+{
+    union file_syncmsg msg;
+    tiny_md5_context c;
+    int fd;
+
+    fd = open(spec, O_RDONLY, 0);
+    if (fd < 0)
+    {
+        SendSyncFail(ser, "md5 open file fail");
+        return false;
+    }
+
+    tiny_md5_starts(&c);
+    while (1)
+    {
+        int len = read(fd, buffer, SYNC_DATA_MAX);
+        if (len < 0)
+        {
+            close(fd);
+            SendSyncFail(ser, "md5 read io fail");
+            return false;
+        }
+        else if (len == 0)
+            break;
+
+        tiny_md5_update(&c, (unsigned char*)buffer, len);
+    }
+    tiny_md5_finish(&c, msg.md5.value);
+    close(fd);
+
+    msg.md5.id = ID_CMD5;
+    return sync_write(ser, &msg.md5, sizeof(msg.md5), 50);
+}
+#else
+static bool do_calcmd5(struct adb_service *ser, char* spec, char *buffer)
+{
+    ((void)spec);
+    ((void)buffer);
+    SendSyncFail(ser, "ID_CMD5 not enabled");
+    return false;
+}
+#endif
+
 static bool handle_sync_command(struct adb_service *ser, char *buffer)
 {
     bool ret = false;
@@ -477,6 +526,9 @@ static bool handle_sync_command(struct adb_service *ser, char *buffer)
         break;
     case ID_RECV:
         ret = do_recv(ser, name, buffer);
+        break;
+    case ID_CMD5:
+        ret = do_calcmd5(ser, name, buffer);
         break;
     case ID_QUIT:
         break;
@@ -578,7 +630,7 @@ static struct adb_service *_filesync_create(struct adb_service_handler *h)
     ext->worker = rt_thread_create("sync:",
                             filesync_thread,
                             ser,
-                            FILESYNC_STACK_SIZE,
+                            ADB_FILESYNC_STACK_SIZE,
                             22,
                             20);
     if (!ext->worker)

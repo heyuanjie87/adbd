@@ -17,6 +17,7 @@
 #define ID_OKAY MKID('O', 'K', 'A', 'Y')
 #define ID_FAIL MKID('F', 'A', 'I', 'L')
 #define ID_QUIT MKID('Q', 'U', 'I', 'T')
+#define ID_CMD5 MKID('C', 'M', 'D', '5') /* calculate md5,extend by heyuanjie87 */
 
 #pragma pack(1)
 
@@ -71,6 +72,11 @@ union file_syncmsg
         uint32_t id;
         uint32_t msglen;
     } status;
+    struct
+    {
+        uint32_t id;
+        uint8_t value[16]; //ADB official not support 
+    } md5;
 };
 #pragma pack()
 
