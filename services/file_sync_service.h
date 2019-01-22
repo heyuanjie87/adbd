@@ -28,6 +28,15 @@ struct file_syncreq
     // Followed by 'path_length' bytes of path (not NUL-terminated).
 };
 
+struct filesync_ext
+{
+    rt_thread_t worker;
+    adb_queue_t recv_que;
+    int rque_buf[8];
+    struct adb_packet *cur;
+    struct rt_event join; 
+};
+
 union file_syncmsg 
 {
     struct

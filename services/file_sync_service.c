@@ -13,6 +13,7 @@
 
 #include <adb_service.h>
 #include "file_sync_service.h"
+#include "file_exmod.h"
 #include <dfs_posix.h>
 
 #ifdef ADB_FILESYNC_MD5_ENABLE
@@ -23,20 +24,15 @@
 #define ADB_FILESYNC_STACK_SIZE    2304
 #endif
 
-//#define DBG_ENABLE
+#ifndef ADB_FILESYNC_RECV_TIMEOUT
+#define ADB_FILESYNC_RECV_TIMEOUT  2000
+#endif
+
+#define DBG_ENABLE
 #define DBG_SECTION_NAME  "ADB sync"
-#define DBG_LEVEL         DBG_LOG
+#define DBG_LEVEL         DBG_INFO
 #define DBG_COLOR
 #include <rtdbg.h>
-
-struct filesync_ext
-{
-    rt_thread_t worker;
-    adb_queue_t recv_que;
-    int rque_buf[4];
-    struct adb_packet *cur;
-    struct rt_event join; 
-};
 
 static char* sync_string_new(char *s1, char *s2, int s2n)
 {
@@ -118,7 +114,7 @@ static bool SendSyncFail(struct adb_service *ser, const char *reason)
     union file_syncmsg msg;
     bool ret;
 
-    LOG_D("fail - %s", reason);
+    LOG_E("fail - %s", reason);
 
     msg.data.id = ID_FAIL;
     msg.data.size = rt_strlen(reason);
@@ -147,7 +143,7 @@ static bool sync_read_path(struct adb_service *ser, char **name, int len)
         SendSyncFail(ser, "alloc memory failure");
         return false;
     }
-    if (!sync_read(ser, *name, len, 2000))
+    if (!sync_read(ser, *name, len, ADB_FILESYNC_RECV_TIMEOUT))
     {
         SendSyncFail(ser, "filename read failure");
         rt_free(*name);
@@ -261,7 +257,7 @@ static bool do_list(struct adb_service *ser, char* path)
                 ret = sync_write(ser, de->d_name, d_name_length, 100);
             if (!ret) 
             {
-                LOG_D("sync: list write fail");
+                LOG_E("sync: list write fail");
                 rt_free(filename);
                 goto fail;
             }
@@ -368,7 +364,7 @@ static bool handle_send_file(struct adb_service *ser, char* path,
 
     while (1) 
     {
-        if (!sync_read(ser, &msg.data, sizeof(msg.data), 100))
+        if (!sync_read(ser, &msg.data, sizeof(msg.data), ADB_FILESYNC_RECV_TIMEOUT))
         {
             SendSyncFail(ser, "read data head fail");
             goto fail;
@@ -390,7 +386,7 @@ static bool handle_send_file(struct adb_service *ser, char* path,
             int size = (msg.data.size > SYNC_DATA_MAX) ? 
                    SYNC_DATA_MAX : msg.data.size;
 
-            if (!sync_read(ser, &buffer[0], size, 800))
+            if (!sync_read(ser, &buffer[0], size, ADB_FILESYNC_RECV_TIMEOUT))
             {
                 SendSyncFail(ser, "read packet timeout");
                 goto abort;
@@ -494,6 +490,7 @@ static bool handle_sync_command(struct adb_service *ser, char *buffer)
     bool ret = false;
     struct file_syncreq req;
     char *name;
+    struct f_exmod *exmod;
 
     if (!buffer)
     {
@@ -501,7 +498,7 @@ static bool handle_sync_command(struct adb_service *ser, char *buffer)
         return false;
     }
 
-    if (!sync_read(ser, &req, sizeof(req), 2000))
+    if (!sync_read(ser, &req, sizeof(req), ADB_FILESYNC_RECV_TIMEOUT))
     {
         SendSyncFail(ser, "command read failure");
         return false;
@@ -510,22 +507,56 @@ static bool handle_sync_command(struct adb_service *ser, char *buffer)
     if (!sync_read_path(ser, &name, req.path_length))
         return false;
 
+    exmod = file_exmod_create(name);
+    if (exmod != NULL)
+    {
+        exmod->ser = ser;
+    }
+
     switch (req.id)
     {
     case ID_LSTAT_V1:
-        ret = do_lstat_v1(ser, name);
+        if (exmod != RT_NULL)
+        {
+            ret = file_exmod_do_lstat_v1(ser, exmod);
+        }
+        else
+        {
+            ret = do_lstat_v1(ser, name);
+        }
         break;
     case ID_LSTAT_V2:
     case ID_STAT_V2:
         break;
     case ID_LIST:
-        ret = do_list(ser, name);
+        if (exmod != RT_NULL)
+        {
+            ret = file_exmod_do_list(ser, exmod);
+        }
+        else
+        {
+            ret = do_list(ser, name);
+        }
         break;
     case ID_SEND:
-        ret = do_send(ser, name, buffer);
+        if (exmod != RT_NULL)
+        {
+            ret = file_exmod_do_send(ser, exmod);
+        }
+        else
+        {
+            ret = do_send(ser, name, buffer);
+        }
         break;
     case ID_RECV:
-        ret = do_recv(ser, name, buffer);
+        if (exmod != RT_NULL)
+        {
+            ret = file_exmod_do_recv(ser, exmod);
+        }
+        else
+        {
+            ret = do_recv(ser, name, buffer);
+        }
         break;
     case ID_CMD5:
         ret = do_calcmd5(ser, name, buffer);
@@ -537,6 +568,7 @@ static bool handle_sync_command(struct adb_service *ser, char *buffer)
         break;
     }
     rt_free(name);
+    file_exmod_delete(exmod);
 
     return ret;
 }
@@ -585,9 +617,9 @@ static int _filesync_close(struct adb_service *ser)
     struct filesync_ext *ext;
 
     ext = (struct filesync_ext *)ser->extptr;
-
+    ser->online = 0;
     rt_event_recv(&ext->join, 1, RT_EVENT_FLAG_OR,
-                      rt_tick_from_millisecond(2000), 0);
+                      rt_tick_from_millisecond(ADB_FILESYNC_RECV_TIMEOUT * 2), 0);
     rt_event_detach(&ext->join);
     rt_mb_detach(&ext->recv_que);
 
@@ -605,8 +637,7 @@ static bool _filesync_enqueue(struct adb_service * ser, struct adb_packet *p, in
     }
 
     ext = (struct filesync_ext *)ser->extptr;
-    ret = adb_packet_enqueue(&ext->recv_que, p, ms);
-
+    ret = adb_packet_enqueue(&ext->recv_que, p, ADB_FILESYNC_RECV_TIMEOUT);
     return ret;
 }
 

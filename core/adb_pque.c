@@ -10,9 +10,9 @@
 
 #include <adb_pque.h>
 
-//#define DBG_ENABLE
+#define DBG_ENABLE
 #define DBG_SECTION_NAME  "ADB pque"
-#define DBG_LEVEL         DBG_LOG
+#define DBG_LEVEL         DBG_INFO
 #define DBG_COLOR
 #include <rtdbg.h>
 

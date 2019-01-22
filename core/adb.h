@@ -33,6 +33,12 @@ struct adb;
 struct adb_tr_ops;
 struct adb_service;
 
+struct adb_features
+{
+    int num;
+    char **value;
+};
+
 struct adb
 {
     rt_list_t node;
@@ -47,6 +53,7 @@ struct adb
     rt_thread_t tr_rtid;
     rt_thread_t tr_wtid;
     const struct adb_tr_ops *ops;
+    struct adb_features *features;
 
     long user_data;
 };
