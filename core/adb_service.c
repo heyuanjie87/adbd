@@ -11,9 +11,9 @@
 #include "adb.h"
 #include <adb_service.h>
 
-//#define DBG_ENABLE
+#define DBG_ENABLE
 #define DBG_SECTION_NAME  "ADB ser"
-#define DBG_LEVEL         DBG_LOG
+#define DBG_LEVEL         DBG_INFO
 #define DBG_COLOR
 #include <rtdbg.h>
 
@@ -30,7 +30,7 @@ struct adb_service* adb_service_find(struct adb *d, unsigned localid, unsigned r
         struct adb_service *ser;
 
         ser = rt_list_entry(node, struct adb_service, list);
-        if (ser->localid == localid && ser->remoteid == remoteid)
+        if (ser->localid == localid)
         {
             ret = ser;
             goto _ok;

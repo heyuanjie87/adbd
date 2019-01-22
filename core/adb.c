@@ -14,9 +14,9 @@
 #include "adb.h"
 #include <adb_service.h>
 
-//#define DBG_ENABLE
+#define DBG_ENABLE
 #define DBG_SECTION_NAME  "ADB"
-#define DBG_LEVEL         DBG_LOG
+#define DBG_LEVEL         DBG_INFO
 #define DBG_COLOR
 #include <rtdbg.h>
 
@@ -90,8 +90,75 @@ void adb_send_close(struct adb *d, unsigned local, unsigned remote)
     write_packet(d, p);
 }
 
+static struct adb_features *get_features_for_handle(const char *handle, int handle_len)
+{
+    const char *curr;
+    int str_len, i;
+    int num = 1;
+    struct adb_features *adb_ft;
+    char *temp;
+
+    curr = handle;
+    str_len = rt_strlen("host::");
+    if (rt_strncmp("host::", curr, str_len) != 0)
+    {
+        LOG_D("Invalid connection request.");
+        return NULL;
+    }
+
+    curr += str_len;
+    str_len = rt_strlen("features=");
+    if (rt_strncmp("features=", curr, str_len) != 0)
+    {
+        LOG_D("Invalid feature information.");
+        return NULL;
+    }
+
+    curr += str_len;
+    str_len = handle + handle_len - curr;
+    for (i = 0; i < str_len; i++)
+    {
+        if (curr[i] == ',')
+        {
+            num += 1;
+        }
+    }
+    adb_ft = rt_malloc(sizeof(struct adb_features) + sizeof(char *) * num + str_len + 1);
+    adb_ft->num = num;
+    adb_ft->value = (char **)&adb_ft[1];
+    temp = (char *)adb_ft + sizeof(struct adb_features) + sizeof(char *) * num;
+    rt_strncpy(temp, curr, str_len);
+    temp[str_len] = '\0';
+
+    num = 0;
+    adb_ft->value[num] = temp;
+    num += 1;
+    for (i = 0; num < adb_ft->num && i < str_len; i++)
+    {
+        if (temp[i] == ',')
+        {
+            temp[i] = '\0';
+            adb_ft->value[num] = &temp[i+1];
+            num += 1;
+        }
+    }
+
+    return adb_ft;
+}
+
 static void handle_new_connection(struct adb *d, struct adb_packet *p)
 {
+    int i, j;
+    struct adb_features *adb_ft;
+
+    adb_ft = get_features_for_handle(p->payload, p->msg.data_length);
+    if (adb_ft == NULL)
+    {
+        return;
+    }
+
+    rt_free(d->features);
+    d->features = adb_ft;
     send_connect(d);
 }
 
@@ -99,7 +166,7 @@ static bool _service_enqueue(struct adb_service *ser, struct adb_packet *p)
 {
     bool ret;
 
-    ret = ser->ops->enqueue(ser, p, 200);
+    ret = ser->ops->enqueue(ser, p, 1000);
 
     return ret; 
 }
@@ -149,6 +216,10 @@ void adb_packet_handle(struct adb *d, struct adb_packet *p, bool pisnew)
                     if (split == 0)
                         send_ready(d, ser->localid, ser->remoteid);
                     del = false;
+                }
+                else
+                {
+                    LOG_E("service enqueue failed");
                 }
             }
         }
@@ -234,6 +305,7 @@ void adb_delete(struct adb *d)
         h->destroy(h, ser);
     }
     rt_mb_detach(&d->send_que);
+    rt_free(d->features);
     rt_free(d);
 }
 

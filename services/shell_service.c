@@ -11,7 +11,6 @@
 #include <adb_service.h>
 #include <rtdevice.h>
 #include <dfs_posix.h>
-#include <shell.h>
 
 struct adb_shdev
 {
@@ -71,6 +70,61 @@ static int _adreport(struct adb_shdev *ad, int ev)
     rt_event_send(&ad->notify, ev);
 
     return 0;
+}
+
+static int _safe_rb_dlen(struct adb_shdev *ad)
+{
+    int l = 0;
+
+    if (!ad->parent.user_data)
+        return 0;
+
+    rt_mutex_take(&_lock, -1);
+    if (ad->wbuf)
+        l = rt_ringbuffer_data_len(ad->wbuf);
+    rt_mutex_release(&_lock);
+
+    return l;
+}
+
+static int _safe_rb_slen(struct adb_shdev *ad)
+{
+    int l = 0;
+
+    if (!ad->parent.user_data)
+        return 0;
+
+    rt_mutex_take(&_lock, -1);
+    if (ad->wbuf)
+        l = rt_ringbuffer_space_len(ad->wbuf);
+    rt_mutex_release(&_lock);
+
+    return l;
+}
+
+static bool _safe_rb_read(struct adb_shdev *ad, void *buf, int size)
+{
+    int l = 0;
+
+    rt_mutex_take(&_lock, -1);
+    if (ad->wbuf)
+        l = rt_ringbuffer_get(ad->wbuf, (unsigned char *)buf, size);
+    rt_mutex_release(&_lock);
+
+    return (l != 0);
+}
+
+static int _safe_rb_write(struct adb_shdev *ad, void *buf, int size)
+{
+    int l = -1;
+
+    rt_mutex_take(&_lock, -1);
+    if (ad->rbuf) {
+        l = rt_ringbuffer_put(ad->rbuf, (const unsigned char *)buf, size);
+    }
+    rt_mutex_release(&_lock);
+
+    return l;
 }
 
 static rt_err_t _shell_service_device_init(struct rt_device *dev)
@@ -164,22 +218,30 @@ static rt_size_t _shell_service_device_write(rt_device_t dev, rt_off_t pos,
                                              const void *buffer, rt_size_t size)
 {
     struct adb_shdev *ad = (struct adb_shdev *)dev;
-    int wlen;
+    int wlen, r = 0;
     char *spos = (char *)buffer;
 
     if (!dev->user_data)
         return 0;
+
+    while (_safe_rb_slen(ad) < size)
+    {
+        r = _adwait(ad, ADEV_WREADY, 20);
+        /* wait event timeout */
+        if (r == 0)
+            return 0;
+    }
 
     if (rt_interrupt_get_nest())
     {
         return rt_ringbuffer_put(ad->wbuf, (unsigned char *)spos, size);
     }
 
+
     rt_mutex_take(&_lock, -1);
     wlen = rt_ringbuffer_put(ad->wbuf, (unsigned char *)spos, size);
     rt_mutex_release(&_lock);
     _adreport(ad, ADEV_WRITE);
-    rt_thread_mdelay(10);
 
     return wlen;
 }
@@ -210,7 +272,7 @@ static int _device_init(rt_device_t shell_device, void *usrdat)
 
     shell_device->type = RT_Device_Class_Char;
 #ifdef RT_USING_DEVICE_OPS
-    device->ops = &shell_ops;
+    shell_device->ops = &shell_ops;
 #else
     shell_device->init = _shell_service_device_init;
     shell_device->open = _shell_service_device_open;
@@ -256,11 +318,14 @@ static int _shell_open(struct adb_service *ser, char *args)
     struct shell_ext *ext;
 
     ext = (struct shell_ext *)ser->extptr;
+
+#ifdef RT_USING_FINSH
     ext->shid = rt_thread_find(FINSH_THREAD_NAME);
     if (!ext->shid)
     {
         return -1;
     }
+#endif
 
     ret = _device_init(&_shdev.parent, ser);
     if (ret == 0)
@@ -273,14 +338,22 @@ static int _shell_open(struct adb_service *ser, char *args)
 
         ext->dev = &_shdev;
 
+        ext->dev->parent.rx_indicate = rt_console_get_device()->rx_indicate;
         ext->old_flag = ioctl(libc_stdio_get_console(), F_GETFL, 0);
         ioctl(libc_stdio_get_console(), F_SETFL, (void *)(ext->old_flag | O_NONBLOCK));
 
+#ifdef RT_USING_FINSH
         rt_thread_control(ext->shid, RT_THREAD_CTRL_CHANGE_PRIORITY,
                           (void *)&pr);
+#endif
+
         libc_stdio_set_console("as-sh", O_RDWR);
         rt_console_set_device("as-sh");
+
+#ifdef RT_USING_FINSH
         rt_thread_resume(ext->shid);
+#endif
+
         rt_thread_mdelay(50);
 
         ret = rt_thread_startup(ext->worker);
@@ -307,6 +380,7 @@ static int _shell_close(struct adb_service *ser)
     ser->online = 0;
     rt_console_set_device(RT_CONSOLE_DEVICE_NAME);
     libc_stdio_set_console(RT_CONSOLE_DEVICE_NAME, O_RDWR);
+    rt_console_get_device()->rx_indicate = ext->dev->parent.rx_indicate;
 
     rt_thread_resume(ext->shid);
     rt_thread_mdelay(50);
@@ -340,45 +414,6 @@ static const struct adb_service_ops _ops =
     _shell_close,
     _shell_enqueue
 };
-
-static int _safe_rb_dlen(struct adb_shdev *ad)
-{
-    int l = 0;
-
-    if (!ad->parent.user_data)
-        return 0;
-
-    rt_mutex_take(&_lock, -1);
-    if (ad->wbuf)
-        l = rt_ringbuffer_data_len(ad->wbuf);
-    rt_mutex_release(&_lock);
-
-    return l;
-}
-
-static bool _safe_rb_read(struct adb_shdev *ad, void *buf, int size)
-{
-    int l = 0;
-
-    rt_mutex_take(&_lock, -1);
-    if (ad->wbuf)
-        l = rt_ringbuffer_get(ad->wbuf, (unsigned char *)buf, size);
-    rt_mutex_release(&_lock);
-
-    return (l != 0);
-}
-
-static int _safe_rb_write(struct adb_shdev *ad, void *buf, int size)
-{
-    int l = -1;
-
-    rt_mutex_take(&_lock, -1);
-    if (ad->rbuf)
-        l = rt_ringbuffer_put(ad->rbuf, (const unsigned char *)buf, size);
-    rt_mutex_release(&_lock);
-
-    return l;
-}
 
 static int do_readdev(struct adb_service *ser, struct shell_ext *ext)
 {
@@ -422,6 +457,11 @@ static int do_writedev(struct adb_service *ser, struct shell_ext *ext)
     len = _safe_rb_write(ext->dev, pos, p->msg.data_length);
     if (len < 0)
         return ADEV_EXIT;
+
+    if (len > 0 && ext->dev->parent.rx_indicate != RT_NULL)
+    {
+        ext->dev->parent.rx_indicate(&(ext->dev->parent), len);
+    }
 
     p->split += len;
     p->msg.data_length -= len;
