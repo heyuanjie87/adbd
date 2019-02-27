@@ -42,6 +42,24 @@ def get_transfer_err(adb_out):
             break
     return out_str
 
+def get_cmd(cmd, adb_path, serial_number):
+    if serial_number != '':
+        cmd = '-s ' + serial_number + ' ' + cmd
+    if adb_path == '':
+        return 'adb ' + cmd + ' '
+    else:
+        (adb_file_path, adb_file_name) = os.path.split(adb_path)
+        if adb_file_name == '':
+            return adb_path + 'adb.exe ' + cmd + ' '
+        else:
+            return adb_path + ' ' + cmd + ' '
+
+def get_push_cmd(adb_path = '', serial_number = ''):
+    return get_cmd('push', adb_path, serial_number)
+
+def get_pull_cmd(adb_path = '', serial_number = ''):
+    return get_cmd('pull', adb_path, serial_number)
+
 def param_to_str(modname, parameter):
     cmdparam = ''
     if not isinstance(parameter, dict):
@@ -59,8 +77,8 @@ def param_to_str(modname, parameter):
     cmdparam += '*'
     return cmdparam
 
-def adb_read_data(modname, parameter, path='/adb_pull.sync'):
-    cmdhead = 'adb pull '
+def adb_read_data(modname, parameter, path='/adb_pull.sync', adb_path = '', serial_number = ''):
+    cmdhead = get_pull_cmd(adb_path, serial_number)
     cmdparam = param_to_str(modname, parameter)
     filename = tempfile.gettempdir() + '/' + 'abd_temp.sync'
     if not cmdparam:
@@ -83,12 +101,12 @@ def adb_read_data(modname, parameter, path='/adb_pull.sync'):
     # print('data:' + data)
     return data
 
-def adb_write_data(modname, parameter, data, path='/adb_push.sync'):
-    cmdhead = 'adb push '
+def adb_write_data(modname, parameter, data, path='/adb_push.sync', adb_path = '', serial_number = ''):
+    cmdhead = get_push_cmd(adb_path, serial_number)
     filename = ''
     cmdparam = param_to_str(modname, parameter)
     if not cmdparam:
-        return None
+        return ''
     cmdparam = "\"" + cmdparam + path + "\""
     f_temp = tempfile.NamedTemporaryFile(delete=False)
     filename = f_temp.name
@@ -98,13 +116,17 @@ def adb_write_data(modname, parameter, data, path='/adb_push.sync'):
     #send data by adb
     adb_out = str(execute_command(cmd))
     adb_err = get_transfer_err(adb_out)
-    if adb_err:
-        print('adb write data err:' + adb_err)
     if os.path.exists(filename):
         os.remove(filename)
+    if adb_err:
+        print('adb write data err:' + adb_err)
+        return adb_err
+    else:
+        return 'OK'
     # print('adb_out' + adb_out)
 
-def adb_push_file(loacl_path, remote_path, file_list):
+def adb_push_file(loacl_path, remote_path, file_list, adb_path = '', serial_number = ''):
+    cmdhead = get_push_cmd(adb_path, serial_number)
     adb_err = None
     name_max = 0
     success_list = []
@@ -122,7 +144,7 @@ def adb_push_file(loacl_path, remote_path, file_list):
         else:
             pathname = item
         [dirname,filename]=os.path.split(pathname)
-        cmd = 'adb push ' + "\"" + loacl_path + dirname + '/' + filename + "\"" + ' ' + "\"" + remote_path + dirname + '/' + filename + "\""
+        cmd = cmdhead + ' ' + "\"" + loacl_path + dirname + '/' + filename + "\"" + ' ' + "\"" + remote_path + dirname + '/' + filename + "\""
         cmd = cmd.replace('\\', '/')
         cmd = cmd.replace('//', '/')
         out_str = 'sync ' + dirname + '/' + filename
