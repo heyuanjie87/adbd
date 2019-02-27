@@ -30,6 +30,7 @@ Enable File service                     /* 开启 文件 服务 */
   Set file service receive timeout      /* 设置文件接收超时时间 */
 Enable external MOD                     /* 使能外部模块 */
   Enable File SYNC Mod                  /* 启用文件同步模块，支持校验MD5，跳过相同文件 */
+  Enable File LIST Mod                  /* 启用获取文件目录模块 */
 ```
 
 ## 3. 外部模块
