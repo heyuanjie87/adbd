@@ -148,7 +148,6 @@ static struct adb_features *get_features_for_handle(const char *handle, int hand
 
 static void handle_new_connection(struct adb *d, struct adb_packet *p)
 {
-    int i, j;
     struct adb_features *adb_ft;
 
     adb_ft = get_features_for_handle(p->payload, p->msg.data_length);
