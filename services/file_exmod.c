@@ -264,6 +264,11 @@ bool file_exmod_do_recv(struct adb_service *ser,  struct f_exmod *exmod)
         file_exmod_send_fail(ser, "not find mod!");
         return false;
     }
+    else if (handle->pull == RT_NULL)
+    {
+        file_exmod_send_fail(ser, "this mod not support pull mode!");
+        return false;
+    }
 
     handle->pull(exmod);
     msg.data.id = ID_DONE;
@@ -286,6 +291,11 @@ bool file_exmod_do_send(struct adb_service *ser, struct f_exmod *exmod)
     if (handle == RT_NULL)
     {
         file_exmod_send_fail(ser, "not find mod!");
+        return false;
+    }
+    else if (handle->push == RT_NULL)
+    {
+        file_exmod_send_fail(ser, "this mod not support push mode!");
         return false;
     }
 
@@ -372,6 +382,10 @@ struct f_exmod *file_exmod_create(const char *name)
     char hex_flag = 0;
 
     LOG_D("F:%s L:%d name:%s", __FUNCTION__, __LINE__, name);
+    if (name == RT_NULL)
+    {
+        return RT_NULL;
+    }
     /* String Length Check */
     name_len = strlen(name);
     str_len = strlen(FILE_EXMOD_HEAD_PRE);
