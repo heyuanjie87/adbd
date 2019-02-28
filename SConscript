@@ -21,6 +21,9 @@ if GetDepend('ADB_EXTERNAL_MOD_ENABLE'):
 if GetDepend('ADB_FILESYNC_MOD_ENABLE'):
     src += ['services/file_sync_mod.c']
 
+if GetDepend('ADB_FILELIST_MOD_ENABLE'):
+    src += ['services/file_list_mod.c']
+
 group = DefineGroup('adb', src, depend = ['PKG_USING_ADBD'], CPPPATH = CPPPATH)
 
 Return('group')

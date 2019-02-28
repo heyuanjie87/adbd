@@ -58,7 +58,7 @@ static bool send_ram_data(void *buff, int len)
 }
 
 /* This function dynamically constructs json arrays */
-struct json_tranf *json_to_str_dynamic(struct json_tranf *tranf, cJSON *json)
+static struct json_tranf *json_to_str_dynamic(struct json_tranf *tranf, cJSON *json)
 {
     char *out_str;
     int str_len, send_len, i;
@@ -147,7 +147,7 @@ struct json_tranf *json_to_str_dynamic(struct json_tranf *tranf, cJSON *json)
     return tranf;
 }
 
-cJSON *dir_to_json(const char *pathname, const char *md5_str)
+static cJSON *dir_to_json(const char *pathname, const char *md5_str)
 {
     cJSON *json_obj;
 
@@ -272,7 +272,7 @@ rt_inline int path_name_check(char *pathname)
     return path_len;
 }
 
-int file_to_json_loop_through(const char *pathname)
+static int file_to_json_loop_through(const char *pathname)
 {
     DIR *curr_dir = NULL;
     struct dirent * dir = NULL;
@@ -286,6 +286,10 @@ int file_to_json_loop_through(const char *pathname)
     int send_count = 0;
 
     LOG_D("F:%s L:%d is run", __FUNCTION__, __LINE__);
+    if (stat(pathname, &filestat) == -1)
+    {
+        LOG_E("path does not exist:%s", pathname);
+    }
     pathname_len = strlen(pathname);
     md5_buff = malloc(512);
     if (md5_buff == RT_NULL)
@@ -293,8 +297,9 @@ int file_to_json_loop_through(const char *pathname)
         LOG_E("md5 check mem malloc failed!!");
         return send_count;
     }
-    if (S_ISDIR(filestat.st_mode))
+    if (!S_ISDIR(filestat.st_mode))
     {
+        free(md5_buff);
         LOG_E("this path[%s] is not Folder!", pathname);
         return send_count;
     }
@@ -423,7 +428,7 @@ int file_to_json_loop_through(const char *pathname)
     return send_count;
 }
 
-void file_delete_loop_through(const char *pathname)
+static void file_delete_loop_through(const char *pathname)
 {
     DIR *curr_dir = NULL;
     struct dirent * dir = NULL;
@@ -520,7 +525,7 @@ void file_delete_loop_through(const char *pathname)
     free(fullpath);
 }
 
-void file_delete_from_json(const char *path, cJSON *json)
+static void file_delete_from_json(const char *path, cJSON *json)
 {
     int json_size, i;
     cJSON *temp;
@@ -558,7 +563,7 @@ void file_delete_from_json(const char *path, cJSON *json)
     free(fullpath);
 }
 
-int file_sync_push(struct f_exmod *exmod)
+static int file_sync_push(struct f_exmod *exmod)
 {
     cJSON *dir_json;
     char *path = NULL, *buff;
@@ -604,7 +609,7 @@ int file_sync_push(struct f_exmod *exmod)
     return 0;
 }
 
-int file_sync_pull(struct f_exmod *exmod)
+static int file_sync_pull(struct f_exmod *exmod)
 {
     char *path = NULL;
     int i, count;

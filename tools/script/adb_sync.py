@@ -15,6 +15,8 @@ from adb_transfer import adb_write_data
 
 loacl_path = ''
 remote_path = ''
+adb_exec_path = ''
+adb_serial_number = ''
 
 adb_sync_mod_name = 'sync_mod'
 adb_sync_key = 'path'
@@ -52,7 +54,7 @@ def get_dev_dir_info(path):
     param = {}
     result = None
     param[adb_sync_key] = path
-    data = adb_read_data(adb_sync_mod_name, param)
+    data = adb_read_data(adb_sync_mod_name, param, adb_path = adb_exec_path, serial_number = adb_serial_number)
     if data:
         result = json.loads(data)
     return result
@@ -100,9 +102,11 @@ def dev_file_delete(path, delete_list):
         curr_len = 0
     param = {}
     param[adb_sync_key] = path
-    adb_write_data(adb_sync_mod_name, param, buff)
+    adb_write_data(adb_sync_mod_name, param, buff, adb_path = adb_exec_path, serial_number = adb_serial_number)
 
 def dev_file_delete_(path, delete_list):
+    success_list = []
+    failure_list = []
     for item in delete_list:
         buff = []
         buff.append(item)
@@ -113,10 +117,15 @@ def dev_file_delete_(path, delete_list):
             param = {}
             param[adb_sync_key] = path
             print('delete ' + item)
-            adb_write_data(adb_sync_mod_name, param, json_str)
+            if adb_write_data(adb_sync_mod_name, param, json_str, adb_path = adb_exec_path, serial_number = adb_serial_number) == 'OK':
+                success_list.append(item)
+            else:
+                failure_list.append(item)
+    result['success'] = success_list
+    result['failure'] = failure_list
 
 def dev_file_sync(sync_list):
-    return adb_push_file(loacl_path, remote_path, sync_list)
+    return adb_push_file(loacl_path, remote_path, sync_list, adb_path = adb_exec_path, serial_number = adb_serial_number)
 
 def list_merge_path(list):
     i = 0
@@ -144,10 +153,22 @@ def list_filtration_folders(list):
 def file_path_check():
     global loacl_path
     global remote_path
+    global adb_exec_path
 
     loacl_path = loacl_path.replace('\\', '/')
     remote_path = remote_path.replace('\\', '/')
-
+    if adb_exec_path != '':
+        adb_exec_path = adb_exec_path.replace('\\', '/')
+        if not os.path.exists(adb_exec_path):
+            print(adb_exec_path + ' adb exec path not exist')
+            return False
+        else:
+            if os.path.isdir(adb_exec_path):
+                if adb_exec_path[-1] != '/':
+                    adb_exec_path += '/'
+                if not os.path.exists(adb_exec_path + 'adb.exe'):
+                    print(adb_exec_path + 'adb.exe' + ' not exist')
+                    return False
     if loacl_path[-1] != '/':
         loacl_path = loacl_path + '/'
     if remote_path[-1] != '/':
@@ -163,9 +184,21 @@ def string_insensitive_sort(str_list):
     listtemp.sort()
     return [x[1] for x in listtemp]
 
+def user_parameter_parsing(args):
+    global adb_exec_path
+    global adb_serial_number
+
+    for i in range(0, len(args)):
+        if args[i] == '-s':
+            adb_serial_number = args[i+1]
+        elif args[i] == '-p':
+            adb_exec_path = args[i+1]
+
 if __name__=='__main__':
     loacl_path = sys.argv[1] if len(sys.argv) > 1 else '.'
     remote_path = sys.argv[2] if len(sys.argv) > 2 else '/'
+    if len(sys.argv) > 3:
+        user_parameter_parsing(sys.argv[3:])
     if file_path_check() == False:
         exit(0)
     starttime = time.time()
@@ -186,18 +219,22 @@ if __name__=='__main__':
     sync_res = dev_file_sync(sync_list_sort)
     print('----------------  delete file ----------------')
     delete_list_sort = string_insensitive_sort(delete_list)
-    dev_file_delete_(remote_path, delete_list_sort)
-    try_res = {}
+    delete_res = dev_file_delete_(remote_path, delete_list_sort)
+    sync_try_res = {}
     if len(sync_res['failure']) > 0:
-        print('----------------     retry    ----------------')
-        try_res = dev_file_sync(sync_res['failure'])
+        print('----------------  sync retry  ----------------')
+        sync_try_res = dev_file_sync(sync_res['failure'])
+    delete_try_res = {}
+    if len(delete_res['failure']) > 0:
+        print('---------------- delete retry ----------------')
+        delete_try_res = dev_file_delete_(delete_res['failure'])
     print('----------------   sync end   ----------------')
     pc_list = []
     for item in json_pc:
         pc_list.append(item[name])
     all_count = len(list_filtration_folders(sync_info['sync']))
     delt_count = len(list_filtration_folders(sync_info['delete']))
-    fail_count = len(try_res['failure']) if len(try_res) else 0
+    fail_count = len(sync_try_res['failure'])
     sync_count = all_count - fail_count
     skip_count = len(list_filtration_folders(pc_list)) - sync_count
     endtime = time.time()
