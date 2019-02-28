@@ -23,7 +23,7 @@
 
 #define DBG_ENABLE
 #define DBG_SECTION_NAME  "list_mod"
-#define DBG_LEVEL         DBG_LOG
+#define DBG_LEVEL         DBG_INFO
 #define DBG_COLOR
 #include <rtdbg.h>
 
@@ -163,6 +163,7 @@ static cJSON *json_add_item(cJSON *json_obj, const char *name, const char *value
     return json_obj;
 }
 
+#ifdef ADB_FILELIST_SUP_MD5
 static int file_calcmd5(char* filename, void *buffer, int size, uint8_t value[16], char str[32])
 {
     tiny_md5_context c;
@@ -218,6 +219,7 @@ static int file_calcmd5(char* filename, void *buffer, int size, uint8_t value[16
     }
     return 0;
 }
+#endif
 
 /* Check whether the string ends with a '/' symbol */
 rt_inline int path_name_check(char *pathname)
