@@ -107,6 +107,7 @@ def dev_file_delete(path, delete_list):
 def dev_file_delete_(path, delete_list):
     success_list = []
     failure_list = []
+    result = {}
     for item in delete_list:
         buff = []
         buff.append(item)
@@ -123,6 +124,7 @@ def dev_file_delete_(path, delete_list):
                 failure_list.append(item)
     result['success'] = success_list
     result['failure'] = failure_list
+    return result
 
 def dev_file_sync(sync_list):
     return adb_push_file(loacl_path, remote_path, sync_list, adb_path = adb_exec_path, serial_number = adb_serial_number)
@@ -234,7 +236,7 @@ if __name__=='__main__':
         pc_list.append(item[name])
     all_count = len(list_filtration_folders(sync_info['sync']))
     delt_count = len(list_filtration_folders(sync_info['delete']))
-    fail_count = len(sync_try_res['failure'])
+    fail_count = len(sync_try_res['failure']) if sync_try_res else 0
     sync_count = all_count - fail_count
     skip_count = len(list_filtration_folders(pc_list)) - sync_count
     endtime = time.time()
