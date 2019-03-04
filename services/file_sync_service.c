@@ -490,7 +490,9 @@ static bool handle_sync_command(struct adb_service *ser, char *buffer)
     bool ret = false;
     struct file_syncreq req;
     char *name;
+#ifdef ADB_EXTERNAL_MOD_ENABLE
     struct f_exmod *exmod;
+#endif
 
     if (!buffer)
     {
@@ -506,21 +508,23 @@ static bool handle_sync_command(struct adb_service *ser, char *buffer)
  
     if (!sync_read_path(ser, &name, req.path_length))
         return false;
-
+#ifdef ADB_EXTERNAL_MOD_ENABLE
     exmod = file_exmod_create(name);
     if (exmod != NULL)
     {
         exmod->ser = ser;
     }
-
+#endif
     switch (req.id)
     {
     case ID_LSTAT_V1:
+#ifdef ADB_EXTERNAL_MOD_ENABLE
         if (exmod != RT_NULL)
         {
             ret = file_exmod_do_lstat_v1(ser, exmod);
         }
         else
+#endif
         {
             ret = do_lstat_v1(ser, name);
         }
@@ -529,31 +533,37 @@ static bool handle_sync_command(struct adb_service *ser, char *buffer)
     case ID_STAT_V2:
         break;
     case ID_LIST:
+#ifdef ADB_EXTERNAL_MOD_ENABLE
         if (exmod != RT_NULL)
         {
             ret = file_exmod_do_list(ser, exmod);
         }
         else
+#endif
         {
             ret = do_list(ser, name);
         }
         break;
     case ID_SEND:
+#ifdef ADB_EXTERNAL_MOD_ENABLE
         if (exmod != RT_NULL)
         {
             ret = file_exmod_do_send(ser, exmod);
         }
         else
+#endif
         {
             ret = do_send(ser, name, buffer);
         }
         break;
     case ID_RECV:
+#ifdef ADB_EXTERNAL_MOD_ENABLE
         if (exmod != RT_NULL)
         {
             ret = file_exmod_do_recv(ser, exmod);
         }
         else
+#endif
         {
             ret = do_recv(ser, name, buffer);
         }
@@ -568,7 +578,9 @@ static bool handle_sync_command(struct adb_service *ser, char *buffer)
         break;
     }
     rt_free(name);
+#ifdef ADB_EXTERNAL_MOD_ENABLE
     file_exmod_delete(exmod);
+#endif
 
     return ret;
 }
