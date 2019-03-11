@@ -164,7 +164,7 @@ int adb_tcpip(int port)
     tid = rt_thread_create("adbd-sk",
                            tcp_server,
                            (void *)port,
-                           1024,
+                           1280,
                            22,
                            20);
     if (tid)
