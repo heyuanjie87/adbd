@@ -110,8 +110,11 @@ static struct adb_features *get_features_for_handle(const char *handle, int hand
     str_len = rt_strlen("features=");
     if (rt_strncmp("features=", curr, str_len) != 0)
     {
-        LOG_D("Invalid feature information.");
-        return NULL;
+        LOG_D("None feature information.");
+        adb_ft = rt_malloc(sizeof(struct adb_features));
+        adb_ft->num = 0;
+        adb_ft->value = (char **)&adb_ft[1];
+        return adb_ft;
     }
 
     curr += str_len;
