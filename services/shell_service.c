@@ -11,6 +11,7 @@
 #include <adb_service.h>
 #include <rtdevice.h>
 #include <dfs_posix.h>
+#include <string.h>
 
 struct adb_shdev
 {
@@ -196,7 +197,7 @@ _retry:
     rt_mutex_release(&_lock);
     if (len == 0)
     {
-        int ret = _adwait(ad, ADEV_READ | ADEV_EXIT, 100);
+        int ret = _adwait(ad, ADEV_READ | ADEV_EXIT, -1);
         if (ret & ADEV_EXIT)
         {
             _adreport(ad, ADEV_EREADY);
@@ -208,33 +209,49 @@ _retry:
     }
 
 _exit:
-    if (len == 0)
-        len = -EAGAIN;
-
     return len;
+}
+
+
+static char *crlf_rpc(const char *str, rt_size_t old_size, rt_size_t * new_size)
+{
+    char * bstr = malloc(old_size * 2);
+    int index = 0;
+    int i;
+    for(i = 0;i < old_size; i++)
+    {
+        if(str[i] == '\n')
+        {
+            bstr[index++] = '\r';
+        }
+        bstr[index++] = str[i];
+    }
+    *new_size = index;
+    return bstr;
 }
 
 static rt_size_t _shell_service_device_write(rt_device_t dev, rt_off_t pos,
                                              const void *buffer, rt_size_t size)
 {
     struct adb_shdev *ad = (struct adb_shdev *)dev;
-    int wlen, r = 0;
-    char *spos = (char *)buffer;
+    int wlen = 0, r = 0;
+    char *spos = crlf_rpc((const char *)buffer, size, &size);
 
     if (!dev->user_data)
-        return 0;
+        goto __exit;
 
     while (_safe_rb_slen(ad) < size)
     {
         r = _adwait(ad, ADEV_WREADY, 20);
         /* wait event timeout */
         if (r == 0)
-            return 0;
+            goto __exit;
     }
 
     if (rt_interrupt_get_nest())
     {
-        return rt_ringbuffer_put(ad->wbuf, (unsigned char *)spos, size);
+        wlen = rt_ringbuffer_put(ad->wbuf, (unsigned char *)spos, size);
+        goto __exit;
     }
 
 
@@ -243,6 +260,8 @@ static rt_size_t _shell_service_device_write(rt_device_t dev, rt_off_t pos,
     rt_mutex_release(&_lock);
     _adreport(ad, ADEV_WRITE);
 
+__exit:
+    free(spos);
     return wlen;
 }
 
