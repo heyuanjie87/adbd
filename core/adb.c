@@ -14,10 +14,8 @@
 #include "adb.h"
 #include <adb_service.h>
 
-#define DBG_ENABLE
 #define DBG_SECTION_NAME  "ADB"
 #define DBG_LEVEL         DBG_INFO
-#define DBG_COLOR
 #include <rtdbg.h>
 
 #ifdef DBG_ENABLE

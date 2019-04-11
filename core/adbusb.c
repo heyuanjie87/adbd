@@ -232,7 +232,7 @@ static rt_err_t _ep_out_handler(ufunction_t func, rt_size_t size)
 static rt_err_t _ep_in_handler(ufunction_t func, rt_size_t size)
 {
     winusb_device_t wd = (winusb_device_t)func->user_data;
-    wd->wrcnt = 0;
+    wd->wrcnt -= size;
     rt_wqueue_wakeup(&(wd->wq), (void *)POLLOUT);
 
     return RT_EOK;
@@ -445,7 +445,7 @@ static int _file_write(struct dfs_fd *fd, const void *buf, size_t size)
 
     req = &wd->ep_in->request;
 
-    wlen = size;
+    wlen = size > EP_MAXPACKET(wd->ep_in) ? EP_MAXPACKET(wd->ep_in) : size;
     wd->wrcnt = wlen;
     req->buffer = wd->ep_in->buffer;
     rt_memcpy(req->buffer, buf, wlen);
