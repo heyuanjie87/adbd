@@ -24,6 +24,10 @@
 #define DBG_COLOR
 #include <rtdbg.h>
 
+#if defined(ADB_USING_SSDP)
+#include "lssdp_service.h"
+#endif
+
 static int is_running = 0;
 
 static int sk_read(int fd, void *buf, int size)
@@ -75,6 +79,37 @@ static const struct adb_tr_ops _ops =
     sk_close,
 };
 
+#if defined(ADB_USING_SSDP)
+int adb_ssdp_service_register(void)
+{
+    struct lssdp_service adb_service =
+    {
+        .name                        = "adb",
+        .info.search_target          = "urn:rt-thread:service:ssdp",
+        .info.unique_service_name    = "adb file sync service",
+        .info.sm_id                  = "80000001",
+        .info.device_type            = "RT-Thread adb device",
+        .info.suffix                 = ":5555",
+    };
+
+    if (lssdp_service_add(&adb_service) != 0)
+    {
+        LOG_E("service %s add failed!", adb_service.name);
+    }
+
+    return RT_EOK;
+}
+
+static int adb_ssdp_service_unregister(void)
+{
+    struct lssdp_service adb_service = {
+        .name = "adb",
+    };
+
+    return lssdp_service_del(&adb_service);
+}
+#endif
+
 static void tcp_server(void *arg)
 {
     int ret;
@@ -112,6 +147,10 @@ static void tcp_server(void *arg)
         goto __exit;
     }
 
+#if defined(ADB_USING_SSDP)
+    adb_ssdp_service_register();
+#endif
+
     while (is_running)
     {
         FD_ZERO(&readset);
@@ -141,6 +180,12 @@ static void tcp_server(void *arg)
             closesocket(connected);
             LOG_E("register transport tcpip fail");
         }
+#if defined(ADB_USING_SSDP)
+        else
+        {
+            adb_ssdp_service_unregister();
+        }
+#endif
     }
 
 __exit:

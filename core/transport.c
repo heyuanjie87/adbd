@@ -220,6 +220,11 @@ static void transport_unref(struct adb *d)
         adb_packet_clear(&d->send_que);
         d->ops->close(d->tr_fd);
         adb_delete(d);
+
+#if defined(ADB_USING_SSDP)
+        extern int adb_ssdp_service_register(void);
+        adb_ssdp_service_register();
+#endif
     }
 }
 
