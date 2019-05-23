@@ -128,6 +128,18 @@ static int _safe_rb_write(struct adb_shdev *ad, void *buf, int size)
     return l;
 }
 
+static int _safe_rb_ad_read(struct adb_shdev *ad, void *buf, int size)
+{
+    int l = 0;
+
+    rt_mutex_take(&_lock, -1);
+    if (ad->rbuf)
+        l = rt_ringbuffer_get(ad->rbuf, (unsigned char *)buf, size);
+    rt_mutex_release(&_lock);
+
+    return l;  
+}
+
 static rt_err_t _shell_service_device_init(struct rt_device *dev)
 {
     struct adb_shdev *ad = (struct adb_shdev *)dev;
@@ -160,6 +172,9 @@ static rt_err_t _shell_service_device_close(struct rt_device *dev)
 {
     struct adb_shdev *ad = (struct adb_shdev *)dev;
 
+    _adreport(ad, ADEV_EXIT);
+    _adwait(ad, ADEV_EREADY, 100);
+
     rt_mutex_take(&_lock, -1);
     if (dev->user_data)
     {
@@ -175,9 +190,7 @@ static rt_err_t _shell_service_device_close(struct rt_device *dev)
     ad->rbuf = 0;
     rt_mutex_release(&_lock);
 
-    _adreport(ad, ADEV_EXIT);
-   if (_adwait(ad, ADEV_EREADY, 100) & ADEV_EREADY)
-       rt_event_detach(&ad->notify);
+    rt_event_detach(&ad->notify);
 
     return 0;
 }
@@ -192,9 +205,7 @@ static rt_size_t _shell_service_device_read(rt_device_t dev, rt_off_t pos,
         goto _exit;
 
 _retry:
-    rt_mutex_take(&_lock, -1);
-    len = rt_ringbuffer_get(ad->rbuf, buffer, size);
-    rt_mutex_release(&_lock);
+    len = _safe_rb_ad_read(ad, buffer, size);
     if (len == 0)
     {
         int ret = _adwait(ad, ADEV_READ | ADEV_EXIT, -1);
@@ -209,6 +220,9 @@ _retry:
     }
 
 _exit:
+    if (len == 0)
+        len = -EAGAIN;
+
     return len;
 }
 
