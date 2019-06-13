@@ -124,6 +124,26 @@ static void tcp_server(void *arg)
     is_running = 1;
     port = (int)arg;
 
+#ifdef RT_USING_NETDEV
+    extern struct netdev *netdev_default;
+    {
+        int try = 100;
+        while (try--)
+        {
+            if (netdev_default != RT_NULL)
+            {
+                break;
+            }
+            rt_thread_delay(RT_TICK_PER_SECOND / 10);
+        }
+        if (netdev_default == RT_NULL)
+        {
+            LOG_E("No default network card was found");
+            return;
+        }
+    }
+#endif
+
     if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
     {
         LOG_E("Create socket error");
