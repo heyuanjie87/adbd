@@ -97,7 +97,7 @@ int adb_ssdp_service_register(void)
         LOG_E("service %s add failed!", adb_service.name);
     }
 
-    return RT_EOK;
+    return 0;
 }
 
 static int adb_ssdp_service_unregister(void)
@@ -120,6 +120,9 @@ static void tcp_server(void *arg)
     fd_set readset;
     socklen_t sin_size = sizeof(struct sockaddr_in);
     int port;
+#if defined(ADB_USING_SSDP)
+    int ssdp_reg = 0;
+#endif
 
     is_running = 1;
     port = (int)arg;
@@ -167,10 +170,6 @@ static void tcp_server(void *arg)
         goto __exit;
     }
 
-#if defined(ADB_USING_SSDP)
-    adb_ssdp_service_register();
-#endif
-
     while (is_running)
     {
         FD_ZERO(&readset);
@@ -179,8 +178,24 @@ static void tcp_server(void *arg)
         timeout.tv_sec = 3;
         timeout.tv_usec = 0;
 
+#if defined(ADB_USING_SSDP)
+        if (adb_transport_isexist())
+        {
+            if (ssdp_reg)
+            {
+                adb_ssdp_service_unregister();
+                ssdp_reg = 0;
+            }
+        }
+        else if (!ssdp_reg)
+        {
+            adb_ssdp_service_register();
+            ssdp_reg = 1;
+        }
+#endif
+
         /* Wait for read or write */
-        if (select(sock + 1, &readset, RT_NULL, RT_NULL, &timeout) == 0)
+        if (select(sock + 1, &readset, RT_NULL, RT_NULL, &timeout) <= 0)
             continue;
 
         /* 接受一个客户端连接socket的请求，这个函数调用是阻塞式的 */
@@ -191,21 +206,21 @@ static void tcp_server(void *arg)
             LOG_E("accept connection failed! errno = %d", errno);
             continue;
         }
+        if (adb_transport_isexist())
+        {
+            closesocket(connected);
+            continue;
+        }
+
         LOG_D("accept connection");
 
-        adb_transport_unregister(TR_TCPIP);
+        adb_transport_unregister(0);
         ret = adb_transport_register(TR_TCPIP, connected, &_ops);
         if (ret != 0)
         {
             closesocket(connected);
             LOG_E("register transport tcpip fail");
         }
-#if defined(ADB_USING_SSDP)
-        else
-        {
-            adb_ssdp_service_unregister();
-        }
-#endif
     }
 
 __exit:

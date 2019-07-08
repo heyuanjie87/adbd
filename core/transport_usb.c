@@ -73,6 +73,25 @@ static const struct adb_tr_ops _ops =
     sk_close,
 };
 
+static int _waitfor_devready(int *fd)
+{
+    rt_thread_mdelay(2000);
+    if (adb_transport_isexist())
+        return 0;
+
+    *fd = open("/dev/winusb", O_RDWR);
+    if (*fd < 0)
+        return 0;
+
+    if (sk_poll(*fd, TRE_READ, 0) & TRE_ERROR)
+    {
+        close(*fd);
+        return 0;
+    }
+
+    return 1;
+}
+
 static void usb_daemon(void *arg)
 {
     int fd;
@@ -82,17 +101,9 @@ static void usb_daemon(void *arg)
     is_running = 1;
 
 _wait:
-    rt_thread_mdelay(2000);
-    fd = open("/dev/winusb", O_RDWR);
-    if (fd < 0)
-        goto _wait;
-    if (sk_poll(fd, TRE_READ, 0) & TRE_ERROR)
-    {
-        close(fd);
-        goto _wait;
-    }
+    while (!_waitfor_devready(&fd));
 
-    adb_transport_unregister(TR_USB);
+    adb_transport_unregister(0);
     if (adb_transport_register(TR_USB, fd, &_ops) != 0)
     {
         close(fd);

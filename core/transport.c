@@ -220,11 +220,6 @@ static void transport_unref(struct adb *d)
         adb_packet_clear(&d->send_que);
         d->ops->close(d->tr_fd);
         adb_delete(d);
-
-#if defined(ADB_USING_SSDP)
-        extern int adb_ssdp_service_register(void);
-        adb_ssdp_service_register();
-#endif
     }
 }
 
@@ -360,6 +355,10 @@ int adb_transport_register(int trtype, int fd, const struct adb_tr_ops *ops)
 
 void adb_transport_unregister(int trtype)
 {
-    if (trtype != 0)
-        adb_kill(trtype);
+    adb_kill(trtype);
+}
+
+int adb_transport_isexist(void)
+{
+    return adb_isexist(0);
 }

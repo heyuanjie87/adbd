@@ -20,5 +20,6 @@ struct adb_tr_ops
 
 int adb_transport_register(int trtype, int fd, const struct adb_tr_ops *ops);
 void adb_transport_unregister(int trtype);
+int adb_transport_isexist(void);
 
 #endif

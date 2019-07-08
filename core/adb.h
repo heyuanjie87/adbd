@@ -65,6 +65,7 @@ void adb_send_close(struct adb *d, unsigned local, unsigned remote);
 
 void adb_packet_handle(struct adb *d, struct adb_packet *p, bool pisnew);
 void adb_kill(int trtype);
+bool adb_isexist(int trtype);
 
 struct adb_service* adb_service_find(struct adb *d, unsigned localid, unsigned remoteid);
 unsigned adb_service_create(struct adb *d, char *name, unsigned remoteid);

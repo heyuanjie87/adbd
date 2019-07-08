@@ -14,14 +14,14 @@
 #include "adb.h"
 #include <adb_service.h>
 
-#define DBG_SECTION_NAME  "ADB"
-#define DBG_LEVEL         DBG_INFO
+#define DBG_SECTION_NAME "ADB"
+#define DBG_LEVEL DBG_INFO
 #include <rtdbg.h>
 
 #ifdef DBG_ENABLE
 #define LOG_CON(c, fmt, ...) \
-    if (c)   \
-        LOG_E(fmt, ##__VA_ARGS__)
+    if (c)                   \
+    LOG_E(fmt, ##__VA_ARGS__)
 #else
 #define LOG_CON(...)
 #endif
@@ -42,15 +42,15 @@ static void write_packet(struct adb *d, struct adb_packet *p)
     }
 }
 
-static void send_connect(struct adb *d) 
+static void send_connect(struct adb *d)
 {
-    struct adb_packet* cp;
+    struct adb_packet *cp;
     int slen;
-    char *con_str = "device::" \
-     "ro.product.name=mido;" \
-     "ro.product.model=rtthread;" \
-     "ro.product.device=mido;" \
-     "features=cmd,shell_v1";
+    char *con_str = "device::"
+                    "ro.product.name=mido;"
+                    "ro.product.model=rtthread;"
+                    "ro.product.device=mido;"
+                    "features=cmd,shell_v1";
 
     slen = rt_strlen(con_str);
     cp = adb_packet_new(slen);
@@ -70,7 +70,7 @@ static void send_connect(struct adb *d)
 
 static void send_ready(struct adb *d, unsigned local, unsigned remote)
 {
-    struct adb_packet* p = adb_packet_new(0);
+    struct adb_packet *p = adb_packet_new(0);
 
     p->msg.command = A_OKAY;
     p->msg.arg0 = local;
@@ -80,7 +80,7 @@ static void send_ready(struct adb *d, unsigned local, unsigned remote)
 
 void adb_send_close(struct adb *d, unsigned local, unsigned remote)
 {
-    struct adb_packet* p = adb_packet_new(0);
+    struct adb_packet *p = adb_packet_new(0);
 
     p->msg.command = A_CLSE;
     p->msg.arg0 = local;
@@ -139,7 +139,7 @@ static struct adb_features *get_features_for_handle(const char *handle, int hand
         if (temp[i] == ',')
         {
             temp[i] = '\0';
-            adb_ft->value[num] = &temp[i+1];
+            adb_ft->value[num] = &temp[i + 1];
             num += 1;
         }
     }
@@ -168,7 +168,7 @@ static bool _service_enqueue(struct adb_service *ser, struct adb_packet *p)
 
     ret = ser->ops->enqueue(ser, p, 1000);
 
-    return ret; 
+    return ret;
 }
 
 void adb_packet_handle(struct adb *d, struct adb_packet *p, bool pisnew)
@@ -178,12 +178,13 @@ void adb_packet_handle(struct adb *d, struct adb_packet *p, bool pisnew)
     if (!p)
         return;
 
-    switch(p->msg.command)
+    switch (p->msg.command)
     {
     case A_CNXN: /* CONNECT(version, maxdata, "system-id-string") */
     {
         handle_new_connection(d, p);
-    }break;
+    }
+    break;
     case A_OPEN: /* OPEN(local-id, 0, "destination") */
     {
         if (p->msg.arg0 != 0 && p->msg.arg1 == 0)
@@ -200,7 +201,8 @@ void adb_packet_handle(struct adb *d, struct adb_packet *p, bool pisnew)
                 adb_send_close(d, 0, p->msg.arg0);
             }
         }
-    }break;
+    }
+    break;
     case A_WRTE:
     {
         if (p->msg.arg0 != 0 && p->msg.arg1 != 0)
@@ -223,50 +225,59 @@ void adb_packet_handle(struct adb *d, struct adb_packet *p, bool pisnew)
                 }
             }
         }
-    }break;
+    }
+    break;
     case A_OKAY:
     {
-
-    }break;
+    }
+    break;
     case A_CLSE:
     {
         if (p->msg.arg1 != 0)
         {
             adb_service_destroy(d, p->msg.arg1, p->msg.arg0);
         }
-    }break;
+    }
+    break;
     }
 
     if (del && pisnew)
         adb_packet_delete(p);
 }
 
-static bool _isexist(int trtype)
+bool adb_isexist(int trtype)
 {
     struct rt_list_node *node, *head;
     struct adb *d;
     bool e = false;
 
     head = &_adb_list;
-    for (node = head->next; node != head; )
+    if (trtype != 0)
     {
-        d = rt_list_entry(node, struct adb, node);
-        node = node->next;
-        if (d->tr_type == trtype)
+        for (node = head->next; node != head;)
         {
-            e = true;
-            break;
+            d = rt_list_entry(node, struct adb, node);
+            node = node->next;
+            if (d->tr_type == trtype)
+            {
+                e = true;
+                break;
+            }
         }
+    }
+    else
+    {
+        e = !rt_list_isempty(head);
     }
 
     return e;
 }
 
-struct adb* adb_new(int trtype)
+struct adb *adb_new(int trtype)
 {
     struct adb *d = 0;
 
-    if (_isexist(trtype))
+    if (adb_isexist(trtype))
         return d;
 
     d = rt_calloc(sizeof(struct adb), 1);
@@ -278,8 +289,8 @@ struct adb* adb_new(int trtype)
     rt_list_insert_after(&_adb_list, &d->node);
 
     rt_list_init(&d->s_list);
-    rt_mb_init(&d->send_que, "adbsque", d->sque_buf, 
-               sizeof(d->sque_buf)/sizeof(d->sque_buf[0]), 0);
+    rt_mb_init(&d->send_que, "adbsque", d->sque_buf,
+               sizeof(d->sque_buf) / sizeof(d->sque_buf[0]), 0);
 
     return d;
 }
@@ -291,7 +302,7 @@ void adb_delete(struct adb *d)
     rt_list_remove(&d->node);
 
     head = &d->s_list;
-    for (node = head->next; node != head; )
+    for (node = head->next; node != head;)
     {
         struct adb_service *ser;
         struct adb_service_handler *h;
@@ -315,7 +326,7 @@ void adb_kill(int trtype)
     struct adb *d;
 
     head = &_adb_list;
-    for (node = head->next; node != head; )
+    for (node = head->next; node != head;)
     {
         d = rt_list_entry(node, struct adb, node);
         node = node->next;
