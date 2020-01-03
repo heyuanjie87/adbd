@@ -138,13 +138,13 @@ static struct adb_packet* _packet_msgdup(struct adb_msg *msg, int datlen)
 
 static bool check_header(struct adb_packet *p)
 {
-    if (p->msg.magic != (p->msg.command ^ 0xffffffff)) 
+    if (p->msg.magic != (p->msg.command ^ 0xffffffff))
     {
         LOG_E("magic command err");
         return false;
     }
 
-    if (p->msg.data_length > MAX_PAYLOAD) 
+    if (p->msg.data_length > MAX_PAYLOAD)
     {
         LOG_E("payload too long");
         return false;
@@ -177,7 +177,7 @@ static int read_packet_split(struct adb *d, struct adb_packet *ck)
                                ((char*) (&(ck->msg.command)))[1],
                                ((char*) (&(ck->msg.command)))[2],
                                ((char*) (&(ck->msg.command)))[3],
-                                           ck->msg.data_length);    
+                                           ck->msg.data_length);
 
     if (ck->msg.data_length == 0)
     {
@@ -260,7 +260,7 @@ static void read_thread(void *arg)
         if (ret == -1)
         {
             LOG_D("remote read failed");
-            break;   
+            break;
         }
     }
 
@@ -283,7 +283,7 @@ static void write_thread(void *arg)
 
     /* wait read thread online */
     if (!adb_packet_dequeue(&d->send_que, &p, 500))
-        goto _exit; 
+        goto _exit;
     adb_packet_delete(p);
 
     while (!d->quit)
@@ -297,9 +297,9 @@ static void write_thread(void *arg)
               ((char*) (&(p->msg.command)))[3],
               p->msg.data_length);
 
-        if (p->msg.command == A_SYNC) 
+        if (p->msg.command == A_SYNC)
         {
-            if (p->msg.arg0 == 0) 
+            if (p->msg.arg0 == 0)
             {
                 LOG_D("transport SYNC offline");
                 adb_packet_delete(p);
@@ -313,7 +313,7 @@ static void write_thread(void *arg)
         {
             LOG_D("remote write failed");
             break;
-        }    
+        }
     }
 
 _exit:
@@ -323,7 +323,7 @@ _exit:
 int adb_transport_register(int trtype, int fd, const struct adb_tr_ops *ops)
 {
     struct adb *d;
-    int ret;
+    int ret = 0;
 
     d = adb_new(trtype);
     if (!d)
