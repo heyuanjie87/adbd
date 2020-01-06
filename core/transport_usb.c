@@ -124,7 +124,7 @@ _wait:
 int adb_usb_init(void)
 {
     rt_thread_t tid;
-    int ret;
+    int ret = 0;
 
     if (is_running)
     {

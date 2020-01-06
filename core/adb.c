@@ -11,6 +11,7 @@
  * 2018-11-11     heyuanjie87  the first version
  */
 
+#include <stdlib.h>
 #include "adb.h"
 #include <adb_service.h>
 
