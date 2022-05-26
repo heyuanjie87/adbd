@@ -14,6 +14,7 @@
 
 #ifdef ADB_TR_TCPIP_ENABLE
 #include <sys/socket.h>
+#include <sys/errno.h>
 #include <sys/time.h>
 #include <dfs_select.h>
 #include <dfs_poll.h>
