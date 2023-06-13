@@ -54,7 +54,7 @@ bool adb_packet_enqueue(adb_queue_t *q, struct adb_packet *p, int ms)
     int tick;
 
     tick = rt_tick_from_millisecond(ms);
-    ret = rt_mb_send_wait(q, (rt_uint32_t)p, tick);
+    ret = rt_mb_send_wait(q, (rt_ubase_t)p, tick);
     LOG_CON(ret, "enqueue fail");
 
     return ret == 0;
