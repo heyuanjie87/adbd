@@ -29,6 +29,10 @@
 #include "lssdp_service.h"
 #endif
 
+#ifndef ADB_TR_STACK_SIZE
+#define ADB_TR_STACK_SIZE     1280
+#endif
+
 static int is_running = 0;
 
 static int sk_read(int fd, void *buf, int size)
@@ -245,7 +249,7 @@ int adb_tcpip(int port)
     tid = rt_thread_create("adbd-sk",
                            tcp_server,
                            (void *)port,
-                           1280,
+                           ADB_TR_STACK_SIZE,
                            22,
                            20);
     if (tid)
